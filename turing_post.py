@@ -398,5 +398,96 @@ def testing_cyclic(machine):
 # testing_cyclic(HaltingIs1Machine())
 # testing_cyclic(HaltingBracketMachine())
 
-machine = HaltingBracketMachine()
-print(simulate_cyclic(tag_to_cyclic(turing_to_tag(machine, list(machine.notok[0]))), time_limit=1000000000, debug_info=True))
+# machine = HaltingBracketMachine()
+# print(simulate_cyclic(tag_to_cyclic(turing_to_tag(machine, list(machine.notok[0]))), time_limit=1000000000, debug_info=True))
+
+
+class CellularAutomaton:
+    def __init__(self, rule, tape):
+        self.transitions = transitions
+        self.tape = tape
+
+
+
+building_blocks = {
+    "A": [],
+    "B": [],
+    "C": [],
+    "D": [],
+    "E": [],
+    "F": [],
+    "G": [],
+    "H": [],
+    "I": [],
+    "J": [] 
+}
+
+def cyclic_to_celluar(cyclic_system):
+    central_tape = []
+    
+    if not cyclic_system.central_tape:
+        raise Exception("Converting empty cyclic systems is not possible")
+
+def generate_central_tape(cyclic_system):
+    central_tape = []
+    central_tape += ["C"]
+    for elem in cyclic_system.tape:
+        if elem == 0:
+            central_tape += ["E", "D"]
+        else:
+            central_tape += ["F", "D"]
+
+    assert(central_tape[-1] == "D")
+    central_tape[-1] = "G"
+    return central_tape
+
+
+def test_generate_central_tape():
+    cyclic_system = CyclicTagSystem([], [0,0,1,0], 0)
+    assert(generate_central_tape(cyclic_system) == list("CEDEDFDEG"))
+
+
+test_generate_central_tape()
+
+
+def generate_rhs_tape(cyclic_system):
+    rhs_tape = []
+    for lelem in cyclic_system.transitions:
+        current_tape = []
+        for elem in lelem:
+            if elem == 0:
+                current_tape += ["I", "J"]
+            else:
+                current_tape += ["I", "I"]
+        if current_tape:
+            assert(current_tape[0] == "I")
+            current_tape = ["K", "H"] + current_tape[1:]
+        else:
+            current_tape = ["L"]
+
+        rhs_tape += current_tape
+
+    assert(rhs_tape[0] == "K")
+    rhs_tape = rhs_tape[1:] + ["K"]
+    return rhs_tape
+
+def test_generate_rhs_tape():
+    cyclic_system = CyclicTagSystem([[1, 0], [0, 1, 1, 0], [], []], [], 0)
+    assert(generate_rhs_tape(cyclic_system) == list("HIIJKHJIIIIIJLLK"))
+
+
+test_generate_rhs_tape()
+
+
+def generate_lhs_tape(cyclic_system):
+    ns = sum(len([t for t in l if t == 0]) for l in cyclic_system.transitions)
+    ys = sum(len([t for t in l if t == 1]) for l in cyclic_system.transitions)
+    nonempty = len([l for l in cyclic_system.transitions if l])
+    empty = len([l for l in cyclic_system.transitions if not l])
+
+    v = 76 * ys + 80 * ns + 60 * nonempty + 43 * empty
+
+    lhs_tape = ["A"] * v + ["B"] + ["A"] * 13 + ["B"] + ["A"] * 11 + ["B"] + ["A"] * 12 + ["B"]
+
+    return lhs_tape
+
