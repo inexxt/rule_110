@@ -407,10 +407,13 @@ if TESTING:
 # print(simulate_cyclic(tag_to_cyclic(turing_to_tag(machine, list(machine.notok[0]))), time_limit=1000000000, debug_info=True))
 
 
-class CellularAutomaton:
-    def __init__(self, rule, tape):
-        self.transitions = transitions
-        self.tape = tape
+class InfiniteCellularAutomaton:
+    def __init__(self, rule, lhs_tape, central_tape, rhs_tape):
+        self.rule = rule
+        self.lhs_tape = lhs_tape
+        self.central_tape = central_tape
+        self.rhs_tape = rhs_tape
+
 
 
 def generate_central_symbols_tape(cyclic_system):
@@ -479,7 +482,7 @@ def generate_lhs_symbols_tape(cyclic_system):
     return lhs_tape
 
 
-def cyclic_to_symbols_tape(cyclic_system, lhs_num, rhs_num):
+def cyclic_to_symbols_tape(cyclic_system):
     
     if not cyclic_system.tape:
         raise Exception("Converting empty cyclic systems is not possible")
@@ -488,10 +491,37 @@ def cyclic_to_symbols_tape(cyclic_system, lhs_num, rhs_num):
     lhs = generate_lhs_symbols_tape(cyclic_system)
     rhs = generate_rhs_symbols_tape(cyclic_system)
 
-    return (lhs * lhs_num), central, (rhs * rhs_num)
+    return lhs, central, rhs
+
+
+if TESTING:
+    machine, lhs_num, rhs_num = HaltingBracketMachine(), 1, 1 # 24e6 in case of (1, 1)
+    l, c, r = cyclic_to_symbols_tape(tag_to_cyclic(turing_to_tag(machine, list(machine.notok[0]))), lhs_num, rhs_num)
+
+    machine, lhs_num, rhs_num = HaltingIs1Machine(), 100, 100 # 11e9 in case of (150, 150)
+    l, c, r = cyclic_to_symbols_tape(tag_to_cyclic(turing_to_tag(machine, list(machine.notok[0]))), lhs_num, rhs_num)
+
+
+RULE = 110
+
+from symbols_to_bits import generate_rhs_from_sequence, generate_lhs_from_sequence
+
+def cyclic_to_automaton(cyclic_system, lhs_num, rhs_num):
+    lhs, central, rhs = cyclic_to_symbols_tape(cyclic_system)
+    # Important - zero_phase is 0, because- zero row in C block matches zeroth line in both
+    # A and B blocks
+    
+    # lhs_tape, lhs_zero_phase = generate_lhs_from_sequence(lhs, zero_phase=0)
+    lhs_tape = None
+    print(central[:10])
+    print(len(central))
+    central_tape, central_zero_phase = generate_rhs_from_sequence(central)
+    rhs_tape, rhs_zero_phase = generate_rhs_from_sequence(rhs, central_zero_phase)
+
+    return InfiniteCellularAutomaton(RULE, lhs_tape, central_tape, rhs_tape)
 
 
 # machine, lhs_num, rhs_num = HaltingBracketMachine(), 1, 1 # 24e6 in case of (1, 1)
-machine, lhs_num, rhs_num = HaltingIs1Machine(), 100, 100 # 11e9 in case of (150, 150)
-l, c, r = cyclic_to_symbols_tape(tag_to_cyclic(turing_to_tag(machine, list(machine.notok[0]))), lhs_num, rhs_num)
-print(30 * len(l) + 200 * len(c) + 200 * len(r))
+machine, lhs_num, rhs_num = HaltingIs1Machine(), 1, 1 # 11e9 in case of (150, 150)
+automaton = cyclic_to_automaton(tag_to_cyclic(turing_to_tag(machine, list(machine.notok[0]))), lhs_num, rhs_num)
+print([len(x) for x in [automaton.lhs_tape, automaton.central_tape, automaton.rhs_tape] if x])
