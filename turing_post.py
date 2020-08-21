@@ -1,5 +1,7 @@
 from collections import deque
 
+TESTING = False
+
 LEFT = -1
 RIGHT = 1
 HALT = 0
@@ -155,8 +157,9 @@ def testing_turing(machine):
             print(f"Testing machine {machine} on data {e}: OK")
 
 
-# testing_turing(HaltingBracketMachine())
-# testing_turing(HaltingIs1Machine())
+if TESTING:
+    testing_turing(HaltingBracketMachine())
+    testing_turing(HaltingIs1Machine())
 
 
 class TagSystem:
@@ -304,8 +307,9 @@ def testing_tag(machine):
             print(f"Testing machine {machine} on data {e}: OK")
 
 
-# testing_tag(HaltingIs1Machine())
-# testing_tag(HaltingBracketMachine())
+if TESTING:
+    testing_tag(HaltingIs1Machine())
+    testing_tag(HaltingBracketMachine())
 
 
 class CyclicTagSystem():
@@ -395,8 +399,9 @@ def testing_cyclic(machine):
         else:
             print(f"Testing machine {machine} on data {e}: OK")
 
-# testing_cyclic(HaltingIs1Machine())
-# testing_cyclic(HaltingBracketMachine())
+if TESTING:
+    testing_cyclic(HaltingIs1Machine())
+    testing_cyclic(HaltingBracketMachine())
 
 # machine = HaltingBracketMachine()
 # print(simulate_cyclic(tag_to_cyclic(turing_to_tag(machine, list(machine.notok[0]))), time_limit=1000000000, debug_info=True))
@@ -408,27 +413,7 @@ class CellularAutomaton:
         self.tape = tape
 
 
-
-building_blocks = {
-    "A": [],
-    "B": [],
-    "C": [],
-    "D": [],
-    "E": [],
-    "F": [],
-    "G": [],
-    "H": [],
-    "I": [],
-    "J": [] 
-}
-
-def cyclic_to_celluar(cyclic_system):
-    central_tape = []
-    
-    if not cyclic_system.central_tape:
-        raise Exception("Converting empty cyclic systems is not possible")
-
-def generate_central_tape(cyclic_system):
+def generate_central_symbols_tape(cyclic_system):
     central_tape = []
     central_tape += ["C"]
     for elem in cyclic_system.tape:
@@ -442,15 +427,16 @@ def generate_central_tape(cyclic_system):
     return central_tape
 
 
-def test_generate_central_tape():
+def test_generate_central_symbols_tape():
     cyclic_system = CyclicTagSystem([], [0,0,1,0], 0)
-    assert(generate_central_tape(cyclic_system) == list("CEDEDFDEG"))
+    assert(generate_central_symbols_tape(cyclic_system) == list("CEDEDFDEG"))
 
 
-test_generate_central_tape()
+if TESTING:
+    test_generate_central_symbols_tape()
 
 
-def generate_rhs_tape(cyclic_system):
+def generate_rhs_symbols_tape(cyclic_system):
     rhs_tape = []
     for lelem in cyclic_system.transitions:
         current_tape = []
@@ -471,15 +457,16 @@ def generate_rhs_tape(cyclic_system):
     rhs_tape = rhs_tape[1:] + ["K"]
     return rhs_tape
 
-def test_generate_rhs_tape():
+def test_generate_rhs_symbols_tape():
     cyclic_system = CyclicTagSystem([[1, 0], [0, 1, 1, 0], [], []], [], 0)
-    assert(generate_rhs_tape(cyclic_system) == list("HIIJKHJIIIIIJLLK"))
+    assert(generate_rhs_symbols_tape(cyclic_system) == list("HIIJKHJIIIIIJLLK"))
 
 
-test_generate_rhs_tape()
+if TESTING:
+    test_generate_rhs_symbols_tape()
 
 
-def generate_lhs_tape(cyclic_system):
+def generate_lhs_symbols_tape(cyclic_system):
     ns = sum(len([t for t in l if t == 0]) for l in cyclic_system.transitions)
     ys = sum(len([t for t in l if t == 1]) for l in cyclic_system.transitions)
     nonempty = len([l for l in cyclic_system.transitions if l])
@@ -491,3 +478,20 @@ def generate_lhs_tape(cyclic_system):
 
     return lhs_tape
 
+
+def cyclic_to_symbols_tape(cyclic_system, lhs_num, rhs_num):
+    
+    if not cyclic_system.tape:
+        raise Exception("Converting empty cyclic systems is not possible")
+
+    central = generate_central_symbols_tape(cyclic_system)
+    lhs = generate_lhs_symbols_tape(cyclic_system)
+    rhs = generate_rhs_symbols_tape(cyclic_system)
+
+    return (lhs * lhs_num), central, (rhs * rhs_num)
+
+
+# machine, lhs_num, rhs_num = HaltingBracketMachine(), 1, 1 # 24e6 in case of (1, 1)
+machine, lhs_num, rhs_num = HaltingIs1Machine(), 100, 100 # 11e9 in case of (150, 150)
+l, c, r = cyclic_to_symbols_tape(tag_to_cyclic(turing_to_tag(machine, list(machine.notok[0]))), lhs_num, rhs_num)
+print(30 * len(l) + 200 * len(c) + 200 * len(r))
