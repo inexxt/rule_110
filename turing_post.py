@@ -1,4 +1,5 @@
 from collections import deque
+import numpy as np
 
 TESTING = False
 
@@ -407,13 +408,10 @@ if TESTING:
 # print(simulate_cyclic(tag_to_cyclic(turing_to_tag(machine, list(machine.notok[0]))), time_limit=1000000000, debug_info=True))
 
 
-class InfiniteCellularAutomaton:
-    def __init__(self, rule, lhs_tape, central_tape, rhs_tape):
+class CellularAutomaton:
+    def __init__(self, rule, tape):
         self.rule = rule
-        self.lhs_tape = lhs_tape
-        self.central_tape = central_tape
-        self.rhs_tape = rhs_tape
-
+        self.tape = tape
 
 
 def generate_central_symbols_tape(cyclic_system):
@@ -510,18 +508,27 @@ def cyclic_to_automaton(cyclic_system, lhs_num, rhs_num):
     lhs, central, rhs = cyclic_to_symbols_tape(cyclic_system)
     # Important - zero_phase is 0, because- zero row in C block matches zeroth line in both
     # A and B blocks
-    
-    # lhs_tape, lhs_zero_phase = generate_lhs_from_sequence(lhs, zero_phase=0)
-    lhs_tape = None
-    print(central[:10])
-    print(len(central))
+    lhs_tape, lhs_zero_phase = generate_lhs_from_sequence(lhs * lhs_num, zero_phase=0)
     central_tape, central_zero_phase = generate_rhs_from_sequence(central)
-    rhs_tape, rhs_zero_phase = generate_rhs_from_sequence(rhs, central_zero_phase)
+    rhs_tape, rhs_zero_phase = generate_rhs_from_sequence(rhs * rhs_num, central_zero_phase)
 
-    return InfiniteCellularAutomaton(RULE, lhs_tape, central_tape, rhs_tape)
+    tape = np.concatenate([lhs_tape, central_tape, rhs_tape], axis=0)
+    return CellularAutomaton(RULE, tape)
 
 
+
+rep = 2
 # machine, lhs_num, rhs_num = HaltingBracketMachine(), 1, 1 # 24e6 in case of (1, 1)
-machine, lhs_num, rhs_num = HaltingIs1Machine(), 1, 1 # 11e9 in case of (150, 150)
-automaton = cyclic_to_automaton(tag_to_cyclic(turing_to_tag(machine, list(machine.notok[0]))), lhs_num, rhs_num)
-print([len(x) for x in [automaton.lhs_tape, automaton.central_tape, automaton.rhs_tape] if x])
+machine, lhs_num, rhs_num = HaltingIs1Machine(), rep, rep # 11e9 in case of (150, 150)
+automaton = cyclic_to_automaton(tag_to_cyclic(turing_to_tag(machine, list(machine.ok[0]))), lhs_num, rhs_num)
+print(automaton.tape.shape, automaton.tape.dtype, rep)
+print(np.sum(automaton.tape))
+
+
+with open(f"bigrow{rep}.np", mode='wb') as f:
+    automaton.tape.tofile(f)
+
+
+# the following sequences appear if and only if the corresponding Turing machine halts:
+# spatial: 01101001101000
+# time: 110101010111111

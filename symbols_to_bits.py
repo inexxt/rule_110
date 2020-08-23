@@ -20,18 +20,30 @@ NEW_BLACK = 128
 NEW_ZERO = 0  # Don't need zero, need only background
 
 
-change = {
-    ORIG_BACKGROUND: NEW_BACKGROUND,
-    ORIG_WHITE: NEW_WHITE,
-    ORIG_BLACK: NEW_BLACK,
-    ORIG_ZERO: NEW_ZERO
-}
+FINAL_WHITE = True
+FINAL_BLACK = False
 
 
 def change_colors_t(x):
+    change = {
+        ORIG_BACKGROUND: NEW_BACKGROUND,
+        ORIG_WHITE: NEW_WHITE,
+        ORIG_BLACK: NEW_BLACK,
+        ORIG_ZERO: NEW_ZERO
+    }
     return change[x]
 
 change_colors = np.vectorize(change_colors_t)
+
+
+def change_colors_final_t(x):
+    if x == NEW_WHITE:
+        return FINAL_WHITE,
+    if x == NEW_BLACK: 
+        return FINAL_BLACK
+
+
+change_colors_final = np.vectorize(change_colors_final_t)
 
 
 blocks_names = list("ABCDEFGHIJKL")
@@ -63,7 +75,10 @@ zero_loc = list(zero_locs)[0] % 30
 
 def is_tip(img, x, y):
     ydim, xdim = img.shape
-    return y != 0 and y != ydim - 1 and            img[y, x] != NEW_BACKGROUND and            img[y - 1, x] == NEW_BACKGROUND and            img[y + 1, x] == NEW_BACKGROUND
+    return y != 0 and y != ydim - 1 and \
+           img[y, x] != NEW_BACKGROUND and \
+           img[y - 1, x] == NEW_BACKGROUND and \
+           img[y + 1, x] == NEW_BACKGROUND
 
 def is_left_tip(img, x, y):
     return is_tip(img, x, y) and x != 0 and img[y, x - 1] == NEW_BACKGROUND
@@ -127,19 +142,21 @@ def change_of_phase(incoming_phase, right_phase):
     return ((CONST_LEFT_PHASE + 1) - right_phase + incoming_phase) % 30
 
 
-def get_row(img, y):
+@lru_cache(128)
+def get_row(block_name, y):
+    img = all_blocks[block_name]
     row = img[y, :]
-    return row[np.vectorize(lambda x: x != NEW_BACKGROUND)(row)]
+    return np.array(row[np.vectorize(lambda x: x != NEW_BACKGROUND)(row)], dtype=np.uint8)
 
 
-assert(list(get_row(all_blocks["C"], zero_loc))[:6] == [NEW_BLACK, NEW_WHITE, NEW_WHITE, NEW_BLACK, NEW_BLACK, NEW_WHITE])
+assert(list(get_row("C", zero_loc))[:6] == [NEW_BLACK, NEW_WHITE, NEW_WHITE, NEW_BLACK, NEW_BLACK, NEW_WHITE])
 
 
 def generate_rhs_from_sequence(sequence, zero_phase=None):
     rows = []
     if sequence[0] == "C":
         zero_phase = 18
-        rows.append((get_row(all_blocks["C"], zero_loc)))
+        rows.append((get_row("C", zero_loc)))
         sequence = sequence[1:]
 
     for s in tqdm(sequence):
@@ -147,9 +164,9 @@ def generate_rhs_from_sequence(sequence, zero_phase=None):
         # print(zero_phase)
         right_phase = true_right_phases[s]
         zero_phase = change_of_phase(zero_phase, right_phase)
-        rows.append(get_row(all_blocks[s], zero_phase))
+        rows.append(get_row(s, zero_phase))
     
-    row = [x for l in rows for x in l]
+    row = change_colors_final(np.concatenate(rows, axis=0))
     return (row, zero_phase)
 
 if TESTING:
@@ -171,20 +188,24 @@ def generate_lhs_from_sequence(sequence, zero_phase = None):
                 0: 0
         }
     }    
-    row = []
+    rows = []
     
     if sequence[-1] == "C":
-        row += list(get_row(all_blocks["C"], zero_loc))
+        rows.append(get_row("C", zero_loc))
         sequence = sequence[:-1]
         zero_phase = 0
     
-    for s in reversed(sequence):
+    for s in tqdm(sequence):
         assert(s in left_block_names)
         zero_phase = change_phase[s][zero_phase]
-        row = list(get_row(all_blocks[s], zero_phase)) + row 
+        rows.append(get_row(s, zero_phase))
+    row = change_colors_final(np.concatenate(list(reversed(rows)), axis=0))
     return (row, zero_phase)
+
 
 if TESTING:
     sequence = ["A"] * 11 + ["B"] + ["A"] * 12 + ["B"] + ["C"]
     assert(len(generate_lhs_from_sequence(sequence)[0]) == 762)
     # len(generate_lhs_from_sequence(sequence)) / len(sequence) # about 30
+
+

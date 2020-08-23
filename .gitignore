@@ -1,1 +1,4 @@
 .ipynb_checkpoints/
+*.np
+process
+__pycache__/
