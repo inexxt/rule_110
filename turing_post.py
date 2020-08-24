@@ -1,6 +1,7 @@
 from collections import deque
 import numpy as np
 from math import ceil, log2
+from typing import NamedTuple, Optional
 
 def flatten(ll):
     return [x for l in ll for x in l]
@@ -72,16 +73,17 @@ class HaltingBracketMachine():
             ("q_r", "("): ("q_r", "(", RIGHT)
         }
 
+# This machine checks if the tape starts from 1
 class HaltingIs1Machine():
     def __init__(self):
-        self.ok = ["$1", "$110"]
-        self.notok = ["$0", "$011"]
+        self.ok = ["1", "10", "110"]
+        self.notok = ["0", "00", "011"]
 
     def start_state(self):
         return "q_s"
 
     def symbols(self):
-        return ["$", "0", "1", "_"]
+        return ["0", "1", "_"]
 
     def states(self):
         return ["q_r", "q_s"]
@@ -90,12 +92,10 @@ class HaltingIs1Machine():
         return {
             ("q_s", "0"): ("q_r", "0", RIGHT),
             ("q_s", "1"): ("q_s", "0", HALT),
-            ("q_s", "$"): ("q_s", "0", RIGHT),
             ("q_s", "_"): ("q_r", "0", RIGHT),
 
             ("q_r", "0"): ("q_r", "0", RIGHT),
             ("q_r", "1"): ("q_r", "0", RIGHT),
-            ("q_r", "$"): ("q_r", "0", RIGHT),
             ("q_r", "_"): ("q_r", "0", RIGHT),
         }
 
@@ -106,7 +106,7 @@ def print_state(tape, state, index):
     for i in range(index):
         print("    ", end="")
 
-    print("", state)
+    print("  v")
 
     for t in tape:
         print("-----", end="")
@@ -211,30 +211,35 @@ class WriteState(NamedTuple):
     mdir: int
 
 
-def ternary_to_binary_turing(bmachine, tape):
-    assert(set(bmachine.symbols) == {"0", "1", "_"})
+def ternary_to_binary_turing(bmachine):
+    assert(set(bmachine.symbols()) == {"0", "1", "_"})
 
     encode = {
-        "0": "AB",
+        "0": "A_",
         "1": "AA",
-        "_": "BB"
+        "_": "__"
     }
 
     decode = {
-        "AB": "0",
+        "A_": "0",
         "AA": "1",
-        "BB": "_"
+        "__": "_"
     }
     
-    encoded_tape = "".join(encode[x] for x in tape)
+    encode_tape = lambda tape: "".join(encode[x] for x in tape)
 
     class BinaryMachine():
         def __init__(self):
+
+            self.ok = [encode_tape(x) for x in bmachine.ok]
+            self.notok = [encode_tape(x) for x in bmachine.notok]
+            
             states = []
+            bstates = bmachine.states()
             # xRT means that it's read the first symbol and it was T, just xR means that it starts reading
             
-            for x in bmachine.states:
-                for letter in ["A", "B", None]:
+            for x in bstates:
+                for letter in ["A", "_", None]:
                     states.append(ReadState(x=x, letter=letter))
         
             # There are two stages of writing
@@ -243,12 +248,12 @@ def ternary_to_binary_turing(bmachine, tape):
             # 1 - I am backed up one cell, I write the second letter of the encoded symbol 
             #     and move to a state that tells me which direction to move (I have to remember that through the whole stage)
             
-            for x in bmachine.states:
+            for x in bstates:
                 for move in [LEFT, RIGHT]:
-                    for letter in ["A", "B"]:
+                    for letter in ["A", "_"]:
                         states.append(WriteState(x=x, letter=letter, mdir=move))
 
-            for x in bmachine.states:
+            for x in bstates:
                 for move in [LEFT, RIGHT]:
                     for steps in [2, 1]:
                         states.append(MoveState(x=x, mdir=move, steps=steps))
@@ -261,8 +266,8 @@ def ternary_to_binary_turing(bmachine, tape):
             tt = {}
 
             # States of type xR
-            for x in bmachine.states: 
-                for letter in ["A", "B"]:
+            for x in bstates: 
+                for letter in ["A", "_"]:
                     tt[(ReadState(x=x, letter=None), letter)] = (
                         ReadState(x=x, letter=letter),
                         letter,
@@ -270,10 +275,12 @@ def ternary_to_binary_turing(bmachine, tape):
                     )
 
             # States of type xRT
-            for x in bmachine.states:
-                for l1 in ["A", "B"]:
-                    for l2 in ["A", "B"]:
-                        new_x, write_symbol, move_direction = bmachine.trans_function[(x, decode[l2 + l1])] 
+            for x in bstates:
+                for l1 in ["A", "_"]:
+                    for l2 in ["A", "_"]:
+                        if l2 + l1 == "_A":
+                            continue
+                        new_x, write_symbol, move_direction = bmachine.trans_function()[(x, decode[l2 + l1])] 
                         write_symbol_enc = encode[write_symbol]
                         tt[(ReadState(x=x, letter=l2), l1)] = (
                             WriteState(x=new_x, letter=write_symbol_enc[0], mdir=move_direction),
@@ -282,17 +289,17 @@ def ternary_to_binary_turing(bmachine, tape):
                         )
 
             # states of type xW
-            for x in bmachine.state:
-                for l1 in ["A", "B"]:
-                    for l2 in ["A", "B"]:
+            for x in bstates:
+                for l1 in ["A", "_"]:
+                    for l2 in ["A", "_"]:
                         for mdir in [LEFT, RIGHT, HALT]:    
                             tt[(WriteState(x=x, letter=l2, mdir=mdir), l1)] = (
                                 MoveState(x=x, mdir=mdir, steps=2),
                                 l2,
-                                LEFT
+                                mdir
                             )
-            for x in bmachine.state:
-                for l in ["A", "B"]:
+            for x in bstates:
+                for l in ["A", "_"]:
                     for mdir in [LEFT, RIGHT]:
                         tt[(MoveState(x=x, mdir=mdir, steps=2), l)] = (
                             MoveState(x=x, mdir=mdir, steps=1),
@@ -311,20 +318,27 @@ def ternary_to_binary_turing(bmachine, tape):
                             l,
                             HALT
                         )
-            self.trans_function = tt
+            self._trans_function = tt
 
-        
+
         def start_state(self):
-            return bmachine.start_state + "R" # it just starts reading
+            return ReadState(x=bmachine.start_state(), letter=None) # it just starts reading
 
         def symbols(self):
-            return ["A", "B"] # B is blank
+            return ["A", "_"] # B is blank
 
         def states(self):
             return self.states
 
         def trans_function(self):
-            return self.trans_function
+            return self._trans_function
+
+    return BinaryMachine()
+
+if TESTING:
+    testing_turing(ternary_to_binary_turing(HaltingIs1Machine()))
+    # machine = ternary_to_binary_turing(HaltingIs1Machine())
+    # run_machine(list(machine.notok[1]), machine, time_limit=10, debug_info=True)
 
 
 class TagSystem:
