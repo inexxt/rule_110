@@ -507,18 +507,13 @@ def ternary_to_binary_turing(bmachine):
                     for l2 in ["A", "_"]:
                         for mdir in [LEFT, RIGHT, HALT]:    
                             tt[(WriteState(x=x, letter=l2, mdir=mdir), l1)] = (
-                                MoveState(x=x, mdir=mdir, steps=2),
+                                MoveState(x=x, mdir=mdir, steps=1),
                                 l2,
                                 mdir
                             )
             for x in bstates:
                 for l in ["A", "_"]:
                     for mdir in [LEFT, RIGHT]:
-                        tt[(MoveState(x=x, mdir=mdir, steps=2), l)] = (
-                            MoveState(x=x, mdir=mdir, steps=1),
-                            l,
-                            mdir
-                        )
                         tt[(MoveState(x=x, mdir=mdir, steps=1), l)] = (
                             ReadState(x=x, letter=None),
                             l,
@@ -526,8 +521,8 @@ def ternary_to_binary_turing(bmachine):
                         )
 
                     # Now, the HALT case is easy
-                    tt[(MoveState(x=x, mdir=HALT, steps=2), l)] = (
-                        MoveState(x=x, mdir=HALT, steps=2),
+                    tt[(MoveState(x=x, mdir=HALT, steps=1), l)] = (
+                        MoveState(x=x, mdir=HALT, steps=1),
                         l,
                         HALT
                     )
